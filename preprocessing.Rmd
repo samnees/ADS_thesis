@@ -1,0 +1,223 @@
+---
+title: "Thesis"
+author: "sam"
+date: "2023-05-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+```{r}
+library(dplyr)
+```
+
+
+Merging both the files
+
+```{r cars}
+library(readxl)
+
+
+#uu <- read_excel("C:/Users/samue/Desktop/Thesis Sollicity/Excel File/uu.xlsx")
+
+uva <- read_excel("C:/Users/samue/Desktop/Thesis Sollicity/Excel File/uva.xlsx")
+```
+
+## Merging based on question_id
+
+```{r pressure, echo=FALSE}
+merged_file <- merge(questionsinsystem, groupsinsystem, by = "questioninmaingroup","question")
+```
+
+### getting rid of dossier_id's with less than 108 tests
+
+```{r}
+# Define your data frame and column name
+df <- uva
+column_name <- "dossier_id"
+
+# Count the number of occurrences of each variable in the column
+column_counts <- table(df[[column_name]])
+
+# Identify the variable names that occur less than or equal to 100 times
+to_remove <- names(column_counts[column_counts <= 108])
+to_remove2 <- names(column_counts[column_counts >= 359])
+# Remove the corresponding rows from the data frame
+df <- df[!df[[column_name]] %in% to_remove, ]
+df <- df[!df[[column_name]] %in% to_remove2, ]
+
+```
+### delete questions asked less then 10 times
+```{r}
+question <- "question_id"
+
+# Count the number of occurrences of each variable in the column
+column_counts <- table(df[[question]])
+
+# Identify the variable names that occur less than or equal to 100 times
+q_remove <- names(column_counts[column_counts < 10])
+# Remove the corresponding rows from the data frame
+df <- df[!df[[question]] %in% q_remove, ]
+```
+
+
+
+
+
+### remove duplicates
+
+
+```{r}
+# Convert datetime to a date-time format
+df$datetime <- as.POSIXct(df$createdOn...5, format = "%Y-%m-%d %H:%M:%S")
+
+```
+
+### getting rid of duplicate answered
+
+```{r}
+# THIS IS ONLY FOR THE UU DATA
+# Sort the data frame by person_id and datetime columns in ascending order
+#df <- df[order(df$dossier_id, df$createdOn...5),]
+
+# Remove duplicate question_id values based on person_id and datetime
+df2 <- df[!duplicated(paste(df$dossier_id, df$question_id)),]
+```
+
+### there are certain answers that are not really useful for clustering. 
+
+```{r}
+# Remove rows where column answer has text instead of numerical values question_id 910/950 are these, when exploring the dataset 
+
+df3 <- subset(df2, question_id != 910)
+df4 <- subset(df3, question_id != 950)
+
+# number 119926.
+
+```
+## doing some exploratory analysis to check the average question_length
+```{r}
+# Load the stringr package
+library(stringr)
+
+# Calculate the text length for each row
+text_lengths <- str_length(df$question)
+average_length <- mean(text_lengths)
+cat("Average length of a question:", average_length, "\n")
+
+# number of people in the dataset after preprocessing:
+num_unique <- length(unique(df$dossier_id))
+cat("Number of students:", num_unique, "\n")
+
+```
+
+
+
+
+### So the select is actually a multiple choice question answering part. Where the difference between 3 and 4 could be huge. Whereas in the likert scale ones they are fairly close. 
+```{r}
+table(df4$answer[df4$type =="\\N"])
+
+```
+
+
+### normalizing all the likert scales.
+changing the Select variables into A/B/C/D
+```{r}
+
+# Mutate column values based on another column's variable name
+df_mutated <- df4 %>%
+  mutate(answer = as.numeric(answer),
+    answer = ifelse(type == "likert/likert5puntsacceptatie2positief", answer / 5, answer),  
+         answer = ifelse(type == "likert/likert5puntsacceptatie2positiefpluseen", (answer - 1) / 4, answer),  
+         answer = ifelse(type == "likert/likert5puntseenspositiefpluseen", (answer -1) / 4, answer),   
+         answer = ifelse(type == "likert/likert5puntsfrequentiepositiefpluseencareercheck", (answer-1) / 4, answer),   
+         answer = ifelse(type == "likert/likert6puntsmatepositief", answer / 5, answer),   
+         answer = ifelse(type == "likert/likert7puntslegeschaalpositief", answer / 6, answer),
+    answer = ifelse(type == "\\N", answer / 6, answer))
+
+```
+Changing the select variables into Letters. 
+
+```{r}
+#table(df_mutated$answer[df_mutated$type =="likert/likert7puntslegeschaalpositief"])
+
+#table(df_mutated$answer[df_mutated$type == "\\N"])
+
+table(df_mutated$answer)
+
+```
+
+  1   2   3   4   5 
+232 498 682 277 113 
+These are the occurences of the select table atm. 
+
+```{r}
+# Define a mapping between values and replacements
+mapping_vector <- c("A", "B", "C", "D","E")
+
+df_mutated$answer[df_mutated$type == "select"] <- mapping_vector[df_mutated$answer[df_mutated$type == "select"]]
+
+table(df_mutated$answer[df_mutated$type =="select"])
+
+```
+They answers are normalized accordingly and the select questions are replaced by letters, Now I am getting rid of columns that we are not going to use. 
+
+The following columns are excluded for further analysis: 
+
+- "id...1"
+- "createdOn...5"     
+- "lastModified...6"
+- "dossierTest_id"
+- "allowEmptyAnswer"
+- "createdOn...13"    
+-"lastModified...14"
+
+```{r}
+
+final_df <- select(df_mutated, dossier_id, question_id, answer, label)
+
+#final_df <- subset(final_df, label != "\\N")
+
+```
+
+### now writing the xlsx file. 
+
+```{r}
+library(openxlsx)
+
+write.xlsx(final_df, "C:/Users/samue/Desktop/Thesis Sollicity/uva_normv3.xlsx")
+
+```
+
+
+```{r}
+newdf <- select(final_df, question_id, answer
+                )
+```
+
+### getting a transposed version of the data. 
+
+```{r}
+library(tidyverse)
+df_transposed <- pivot_wider(newdf, names_from = question_id, values_from = answer, values_fn = list)
+
+write.csv(df_transposed, "C:/Users/samue/Desktop/Thesis Sollicity/transposedv3.csv")
+
+```
+
+
+```{r}
+# Min-max normalization function
+min_max_normalize <- function(x) {
+  (x - min(x)) / (max(x) - min(x))
+}
+
+# Apply min-max normalization to the whole dataset
+norm_transposed <- as.data.frame(lapply(transposed, min_max_normalize))
+```
+
+

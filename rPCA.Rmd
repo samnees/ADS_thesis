@@ -1,0 +1,569 @@
+---
+title: "PCA"
+author: "Samuel"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    toc_collapsed: yes
+    toc_depth: 3
+    number_sections: yes
+    theme: lumen
+    code_fold: hide
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+date: '22-05-2023'
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+In this notebook im trying to use the transposed data to do PCA in order to find out which questions should be included, and which questions we can exclude from the questionnaires.  
+
+
+
+#1 Loading the files and libraries.
+```{r}
+transposed <- read.csv("C:/Users/samue/Desktop/Thesis Sollicity/transposed.csv")
+# these are the FeedBack questions regarding 910-940
+test1 <- transposed[, 1:30]
+# these are the questions regarding beroepskeuzetest
+test2 <- transposed[, 31:139]
+
+# these are the questions regarding workvalues 2336-2355
+test3 <- transposed[, 139:158]
+
+# these are the questions regarding workstyles are 2397-2412, :
+test4 <- transposed[, 159:174]
+
+# Competence are 2500 + 
+test5 <- transposed[, 175:209]
+
+```
+
+## 1.1 Opening the required libraries.
+
+```{r}
+library(FactoMineR)
+library(Factoshiny)
+library(devtools)
+library(plotly)
+library(factoextra)
+```
+More packages: 
+
+```{r}
+library(corrplot)
+library(tidyverse)
+library(Hmisc)
+library(corrgram)
+library(DT)
+library(nFactors)
+library(NbClust)
+
+```
+
+##1.2 Head of the data.
+Here you can see how the data looks like: 
+```{r}
+head(transposed)
+```
+
+
+#2 The correlation plots can have some exploratory power in how questions are related to one another. Giving a better perspectives beforehand. 
+```{r}
+
+# Correlation Plot for test1
+corrplot(corr = cor(test1),
+         method = 'square',
+         type='full',
+         order = 'hclust',
+         hclust.method = 'ward.D2',
+         tl.col = 'gray10',
+         addrect = 6)
+# Correlation Plot for test2
+corrplot(corr = cor(test2),
+         method = 'square',
+         type='full',
+         order = 'hclust',
+         hclust.method = 'ward.D2',
+         tl.col = 'gray10',
+         addrect = 6)
+# Correlation Plot for test3
+corrplot(corr = cor(test3),
+         method = 'square',
+         type='full',
+         order = 'hclust',
+         hclust.method = 'ward.D2',
+         tl.col = 'gray10',
+         addrect = 6)
+# Correlation Plot for test4
+corrplot(corr = cor(test4),
+         method = 'square',
+         type='full',
+         order = 'hclust',
+         hclust.method = 'ward.D2',
+         tl.col = 'gray10',
+         addrect = 6)
+# Correlation Plot for test5
+corrplot(corr = cor(test5),
+         method = 'square',
+         type='full',
+         order = 'hclust',
+         hclust.method = 'ward.D2',
+         tl.col = 'gray10',
+         addrect = 6)
+
+
+
+```
+
+
+## 2.1 The code for running the PCA per test. As well as getting the eigenvalues. 
+```{r}
+res.pca1 <- prcomp(test1, scale = TRUE, center = TRUE)
+res.pca2 <- prcomp(test2, scale = TRUE, center = TRUE)
+res.pca3 <- prcomp(test3, scale = TRUE, center = TRUE)
+res.pca4 <- prcomp(test4, scale = TRUE, center = TRUE)
+res.pca5 <- prcomp(test5, scale = TRUE, center = TRUE)
+# Eigenvalues
+eig.val1 <- get_eigenvalue(res.pca1)
+eig.val2 <- get_eigenvalue(res.pca2)
+eig.val3 <- get_eigenvalue(res.pca3)
+eig.val4 <- get_eigenvalue(res.pca4)
+eig.val5 <- get_eigenvalue(res.pca5)
+
+```
+
+## 2.2 Scree Plot visualisation
+
+Visualize eigenvalues using SCREE PLOT An alternative method to determine the number of principal components is to look at a Scree Plot, which is the plot of eigenvalues ordered from largest to the smallest. The number of component is determined at the point, beyond which the remaining eigenvalues are all relatively small and of comparable size.
+
+```{r}
+fviz_eig(res.pca1,addlabels = TRUE, ylim = c(0, 50))
+fviz_eig(res.pca2,addlabels = TRUE, ylim = c(0, 50))
+fviz_eig(res.pca3,addlabels = TRUE, ylim = c(0, 50))
+fviz_eig(res.pca4,addlabels = TRUE, ylim = c(0, 50))
+fviz_eig(res.pca5,addlabels = TRUE, ylim = c(0, 50))
+```
+A high cos2 indicates a good representation of the variable on the principal component. In this case the variable is positioned close to the circumference of the correlation circle.
+
+A low cos2 indicates that the variable is not perfectly represented by the PCs. In this case the variable is close to the center of the circle.
+
+For a given variable, the sum of the cos2 on all the principal components is equal to one.
+
+If a variable is perfectly represented by only two principal components (Dim.1 & Dim.2), the sum of the cos2 on these two PCs is equal to one. In this case the variables will be positioned on the circle of correlations.For some of the variables, more than 2 components might be required to perfectly represent the data. In this case the variables are positioned inside the circle of correlations.
+
+## 2.3 Calculating the Squared Cosine
+
+```{r}
+fviz_cos2(res.pca1, choice = "var", axes = 1:2)
+fviz_cos2(res.pca2, choice = "var", axes = 1:2)
+fviz_cos2(res.pca3, choice = "var", axes = 1:2)
+fviz_cos2(res.pca4, choice = "var", axes = 1:2)
+fviz_cos2(res.pca5, choice = "var", axes = 1:2)
+```
+
+
+## 2.3.1 Visualising the contributions on the circumference for each principle component.
+```{r}
+#test1
+fviz_pca_var(res.pca1,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             
+             repel = TRUE     # Avoid text overlapping
+             )
+#test2
+fviz_pca_var(res.pca2,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             
+             repel = TRUE     # Avoid text overlapping
+             )
+#test3
+fviz_pca_var(res.pca3,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             
+             repel = TRUE     # Avoid text overlapping
+             )
+#test4
+fviz_pca_var(res.pca4,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             
+             repel = TRUE     # Avoid text overlapping
+             )
+#test5
+fviz_pca_var(res.pca5,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             
+             repel = TRUE     # Avoid text overlapping
+             )
+
+fviz_pca_var(res.pca1,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             
+             repel = TRUE     # Avoid text overlapping
+             )
+```
+
+
+So after the visualisations I think we can use the factor loadings to see the relevance of questions and what not. 
+This is a Function for the factor loadings: 
+
+```{r}
+plot_factors <- function(df,f1,f2,nfact){
+    factorloadings <- as.data.frame(df$loadings[,c(f1,f2)])
+    g <- ggplot(data = factorloadings, aes(x = factorloadings[[1]], y = factorloadings[[2]]))+
+        geom_label(aes(label=rownames(factorloadings)),cex=3.5,alpha=.5,fill='lightcyan')+
+        theme_light()+
+        labs(title=paste0('Factor ',f1,' vs Factor ',f2),
+             x=paste0('Factor ',f1),
+             y=paste0('Factor ',f2))+
+        scale_x_continuous(breaks = seq(-1,1,.5),limits = c(-1,1))+
+        scale_y_continuous(breaks = seq(-1,1,.5),limits = c(-1,1))
+    ggsave(plot = g,filename = paste0('f',f1,'vsf',f2,'nf',nfact,'.png'),width = 150,height = 150,units = 'mm')
+    return(g)
+}
+
+```
+
+##2.4  Non-Graphical Scree Plot
+
+here we're figuring out how many factors are required, and which loadings to be used. 
+
+```{r}
+
+#Method test 1
+ev <- eigen(cor(test1)) # get eigenvalues
+ap <- parallel(subject=nrow(test1),var=ncol(test1),rep=100,cent=.05)
+nS <- nScree(x=ev$values, cor = T,model = 'factors',aparallel=ap$eigen$qevpea)
+plotnScree(nS)
+
+#Method test 2
+ev <- eigen(cor(test2)) # get eigenvalues
+ap <- parallel(subject=nrow(test2),var=ncol(test2),rep=100,cent=.05)
+nS <- nScree(x=ev$values, cor = T,model = 'factors',aparallel=ap$eigen$qevpea)
+plotnScree(nS)
+
+#Method test 3
+ev <- eigen(cor(test3)) # get eigenvalues
+ap <- parallel(subject=nrow(test3),var=ncol(test3),rep=100,cent=.05)
+nS <- nScree(x=ev$values, cor = T,model = 'factors',aparallel=ap$eigen$qevpea)
+plotnScree(nS)
+
+#Method test 4
+ev <- eigen(cor(test4)) # get eigenvalues
+ap <- parallel(subject=nrow(test4),var=ncol(test4),rep=100,cent=.05)
+nS <- nScree(x=ev$values, cor = T,model = 'factors',aparallel=ap$eigen$qevpea)
+plotnScree(nS)
+
+#Method test 5
+ev <- eigen(cor(test5)) # get eigenvalues
+ap <- parallel(subject=nrow(test5),var=ncol(test5),rep=100,cent=.05)
+nS <- nScree(x=ev$values, cor = T,model = 'factors',aparallel=ap$eigen$qevpea)
+plotnScree(nS)
+
+
+```
+The scree plot shows that at least 8 factors explain some of the variance. According to my findings and the visual exploration done above of the eigenvalues, we can see as the slope curve diminishes, adding more factors do not to seem to capture and explain much more of the variances. Reducing the number of questions seem promising so.
+
+
+#3 Finding questions that explain most variance
+
+When trying to find out which questions explain the most variability in the principal components you can calculate the cumulative incidence / Squared Cosine. 
+
+Using this, I have to perform it for all 5 tests and then get an overview of all the questions that should be excluded.
+
+## 3.1 Squared Cosine
+
+Test 1:
+```{r}
+
+# Perform PCA for test1
+pca1 <- prcomp(test1, scale. = TRUE)
+
+# Get the cos2 values for each variable in the first two dimensions
+cos2_values <- pca1$rotation[, 1:2]^2
+
+# Calculate the average cos2 value for each variable
+average_cos2 <- rowMeans(cos2_values)
+
+# Sort the average cos2 values in descending order
+sorted_cos2 <- sort(average_cos2, decreasing = TRUE)
+
+# Specify the number of variables to include
+num_variables_to_include <- 8
+
+# Identify the variables with the highest cos2 values
+variables_to_include_test1 <- names(sorted_cos2)[1:num_variables_to_include]
+
+print(variables_to_include_test1)
+```
+Test 2: 
+
+```{r}
+# Perform PCA for test2
+pca2 <- prcomp(test2, scale. = TRUE)
+
+# Get the cos2 values for each variable in the first two dimensions
+cos2_values <- pca2$rotation[, 1:2]^2
+
+# Calculate the average cos2 value for each variable
+average_cos2 <- rowMeans(cos2_values)
+
+# Sort the average cos2 values in descending order
+sorted_cos2 <- sort(average_cos2, decreasing = TRUE)
+
+# Specify the number of variables to include
+num_variables_to_include <- 33
+
+# Identify the variables with the highest cos2 values
+variables_to_include_test2 <- names(sorted_cos2)[1:num_variables_to_include]
+
+print(variables_to_include_test2)
+```
+Test 3: 
+
+```{r}
+# Perform PCA for test3
+pca3 <- prcomp(test3, scale. = TRUE)
+
+# Get the cos2 values for each variable in the first two dimensions
+cos2_values <- pca3$rotation[, 1:2]^2
+
+# Calculate the average cos2 value for each variable
+average_cos2 <- rowMeans(cos2_values)
+
+# Sort the average cos2 values in descending order
+sorted_cos2 <- sort(average_cos2, decreasing = TRUE)
+
+# Specify the number of variables to include
+num_variables_to_include <- 6
+
+# Identify the variables with the highest cos2 values
+variables_to_include_test3 <- names(sorted_cos2)[1:num_variables_to_include]
+
+print(variables_to_include_test3)
+```
+
+test4:
+```{r}
+# Perform PCA for test4
+pca4 <- prcomp(test4, scale. = TRUE)
+
+# Get the cos2 values for each variable in the first two dimensions
+cos2_values <- pca4$rotation[, 1:2]^2
+
+# Calculate the average cos2 value for each variable
+average_cos2 <- rowMeans(cos2_values)
+
+# Sort the average cos2 values in descending order
+sorted_cos2 <- sort(average_cos2, decreasing = TRUE)
+
+# Specify the number of variables to include
+num_variables_to_include <- 4
+
+# Identify the variables with the highest cos2 values
+variables_to_include_test4 <- names(sorted_cos2)[1:num_variables_to_include]
+
+print(variables_to_include_test4)
+```
+
+Test 5:
+```{r}
+# Perform PCA for test1
+pca5 <- prcomp(test5, scale. = TRUE)
+
+# Get the cos2 values for each variable in the first two dimensions
+cos2_values <- pca5$rotation[, 1:2]^2
+
+# Calculate the average cos2 value for each variable
+average_cos2 <- rowMeans(cos2_values)
+
+# Sort the average cos2 values in descending order
+sorted_cos2 <- sort(average_cos2, decreasing = TRUE)
+
+# Specify the number of variables to include
+num_variables_to_include <- 9
+
+# Identify the variables with the highest cos2 values
+variables_to_include_test5 <- names(sorted_cos2)[1:num_variables_to_include]
+
+print(variables_to_include_test5)
+```
+
+
+## 3.2 Cumulative Variance
+These are the Cumulative variance plots for showing the principal components. As a cutoff point I took 90% of the variance explained. This is an arbritary number: 
+
+### 3.2.1 Cumulative variance plot
+```{r}
+# Calculate cumulative variance
+cumulative_var1 <- cumsum(pca1$sdev^2) / sum(pca1$sdev^2)
+cumulative_var2 <- cumsum(pca2$sdev^2) / sum(pca2$sdev^2)
+cumulative_var3 <- cumsum(pca3$sdev^2) / sum(pca3$sdev^2)
+cumulative_var4 <- cumsum(pca4$sdev^2) / sum(pca4$sdev^2)
+cumulative_var5 <- cumsum(pca5$sdev^2) / sum(pca5$sdev^2)
+
+cutoff <- 0.9
+
+# Plot the cumulative variance
+plot(cumulative_var1, type = "b", xlab = "Number of Principal Components", ylab = "Cumulative Variance Explained Test 1")
+# Add a horizontal line at the cutoff
+abline(h = cutoff, col = "red", lty = 2)
+# Plot the cumulative variance
+plot(cumulative_var2, type = "b", xlab = "Number of Principal Components", ylab = "Cumulative Variance Explained Test 2")
+# Add a horizontal line at the cutoff
+abline(h = cutoff, col = "red", lty = 2)
+# Plot the cumulative variance
+plot(cumulative_var3, type = "b", xlab = "Number of Principal Components", ylab = "Cumulative Variance Explained Test 3")
+# Add a horizontal line at the cutoff
+abline(h = cutoff, col = "red", lty = 2)
+# Plot the cumulative variance
+plot(cumulative_var4, type = "b", xlab = "Number of Principal Components", ylab = "Cumulative Variance Explained Test 4")
+# Add a horizontal line at the cutoff
+abline(h = cutoff, col = "red", lty = 2)
+# Plot the cumulative variance
+plot(cumulative_var5, type = "b", xlab = "Number of Principal Components", ylab = "Cumulative Variance Explained Test 5")
+# Add a horizontal line at the cutoff
+abline(h = cutoff, col = "red", lty = 2)
+```
+
+
+### 3.2.2 Cumulative variance 
+Here is the code for finding the components using Cumulative variance.
+
+Test 1
+```{r}
+# Perform PCA for test 1 and get the eigenvalues 
+eigenvalues <- pca1$sdev^2
+
+# Calculate the proportion of variance explained by each principal component so that this can be used to which variables should be included per componennt.
+variance_explained <- eigenvalues / sum(eigenvalues)
+cumulative_variance <- cumsum(variance_explained)
+
+# The number of variance we want to be accounted for.
+threshold <- 0.90
+
+# Identify the variables associated with cumulative variance below the threshold
+variables_to_include_test1CV <- colnames(test1)[1:ncol(pca1$rotation)][cumulative_variance < threshold]
+```
+Test 2 
+```{r}
+# Perform PCA for test 2 and get the eigenvalues 
+eigenvalues <- pca2$sdev^2
+
+# Calculate the proportion of variance explained by each principal component so that this can be used to which variables should be included per componennt.
+variance_explained <- eigenvalues / sum(eigenvalues)
+cumulative_variance <- cumsum(variance_explained)
+
+# The number of variance we want to be accounted for.
+threshold <- 0.90
+
+# Identify the variables associated with cumulative variance below the threshold
+variables_to_include_test2CV <- colnames(test2)[1:ncol(pca2$rotation)][cumulative_variance < threshold]
+```
+Test 3
+```{r}
+# Perform PCA for test 2 and get the eigenvalues 
+eigenvalues <- pca3$sdev^2
+
+# Calculate the proportion of variance explained by each principal component so that this can be used to which variables should be included per componennt.
+variance_explained <- eigenvalues / sum(eigenvalues)
+cumulative_variance <- cumsum(variance_explained)
+
+# The number of variance we want to be accounted for.
+threshold <- 0.90
+
+# Identify the variables associated with cumulative variance below the threshold
+variables_to_include_test3CV <- colnames(test3)[1:ncol(pca3$rotation)][cumulative_variance < threshold]
+```
+Test 4
+```{r}
+# Perform PCA for test 2 and get the eigenvalues 
+eigenvalues <- pca4$sdev^2
+
+# Calculate the proportion of variance explained by each principal component so that this can be used to which variables should be included per componennt.
+variance_explained <- eigenvalues / sum(eigenvalues)
+cumulative_variance <- cumsum(variance_explained)
+
+# The number of variance we want to be accounted for.
+threshold <- 0.90
+
+# Identify the variables associated with cumulative variance below the threshold
+variables_to_include_test4CV <- colnames(test4)[1:ncol(pca4$rotation)][cumulative_variance < threshold]
+```
+Test 5
+```{r}
+# Perform PCA for test 2 and get the eigenvalues 
+eigenvalues <- pca5$sdev^2
+
+# Calculate the proportion of variance explained by each principal component so that this can be used to which variables should be included per componennt.
+variance_explained <- eigenvalues / sum(eigenvalues)
+cumulative_variance <- cumsum(variance_explained)
+
+# The number of variance we want to be accounted for.
+threshold <- 0.90
+
+# Identify the variables associated with cumulative variance below the threshold
+variables_to_include_test5CV <- colnames(test5)[1:ncol(pca5$rotation)][cumulative_variance < threshold]
+```
+
+#4 Creating Reduced Dataset.
+
+Generating the final dataset for patrick and naomi to perform their analysis on. 
+
+Combining all the variables, and deleting them to find the variables to exclude.
+```{r}
+
+# this is the exclude list for the squared cosine
+variable_names_i <- c(variables_to_include_test1,variables_to_include_test2,variables_to_include_test3,variables_to_include_test4,variables_to_include_test5)
+
+variable_names <- colnames(transposed)
+
+exclude <-setdiff(variable_names,variable_names_i)
+exclude_list <- gsub("X", "", exclude)
+
+# this is the exclude list for the cumulative variance
+variable_names_j <- c(variables_to_include_test1CV,variables_to_include_test2CV,variables_to_include_test3CV,variables_to_include_test4CV,variables_to_include_test5CV)
+
+variable_names <- colnames(transposed)
+
+exclude_j <-setdiff(variable_names,variable_names_j)
+exclude_listCV <- gsub("X", "", exclude_j)
+
+```
+
+Writing to the library itself.
+
+```{r}
+library(readxl)
+furthered_modified_data_set_demo_accounts_removed_3_ <- read_excel("C:/Users/samue/Desktop/Thesis Sollicity/Excel File/furthered_modified_data_set_demo_accounts_removed (3).xlsx")
+
+filtered_dataset <- furthered_modified_data_set_demo_accounts_removed_3_[!(furthered_modified_data_set_demo_accounts_removed_3_$question_id %in% exclude_list), ]
+
+filtered_datasetCV <- furthered_modified_data_set_demo_accounts_removed_3_[!(furthered_modified_data_set_demo_accounts_removed_3_$question_id %in% exclude_listCV), ]
+```
+
+Save this as an excel file.
+
+```{r}
+library(openxlsx)
+
+write.xlsx(filtered_dataset, "C:/Users/samue/Desktop/Thesis Sollicity/reduced_dataset_pcaSC.xlsx")
+
+write.xlsx(filtered_datasetCV, "C:/Users/samue/Desktop/Thesis Sollicity/reduced_dataset_pcaCV.xlsx")
+
+```
+Sources that helped this analysis this analysis:
+
+https://rpubs.com/Shreyansh_Shivam/604562
+https://cran.r-project.org/web/packages/corrplot/corrplot.pdf
+https://github.com/rsangole/PersonalityTraitFactorAnalysis/blob/master/FA_Traits.R
+
